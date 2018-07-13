@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: EBS Auto Backup
+Resources:
+  ScheduledRule:
+    Type: AWS::Events::Rule
+    Properties:
+      # JST 04:00
+      ScheduleExpression: 'cron(0 19 ? * * *)'
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt EbsBackupLambdaFunction.Arn
+          Id: EbsBackup
+  PermissionForEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref EbsBackupLambdaFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ScheduledRule.Arn
+  EbsBackupLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: ebs-backup
+      Runtime: go1.x
+      CodeUri: build
+      Role: !GetAtt EbsBackupLambdaRole.Arn
+      MemorySize: 512
+      Timeout: 180
+  EbsBackupLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: !Sub ${AWS::AccountId}-ebs-backup-policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
+                  - ec2:DeleteSnapshot
+                  - ec2:DescribeSnapshotAttribute
+                  - ec2:CreateTags
+                  - ec2:CreateSnapshot
+                  - ec2:CreateImage
+                  - ec2:DescribeSnapshots
+                Resource: '*'

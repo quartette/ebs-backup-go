@@ -1,0 +1,4 @@
+.envrc
+.template.yml
+ebs-backup*
+!.gitkeep
